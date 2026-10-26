@@ -84,9 +84,11 @@ const lightboxBackdrop = document.getElementById('lightboxBackdrop');
 const lightboxContent = document.querySelector('.lightbox__content');
 const bgmAudio = document.getElementById('bgmAudio');
 const musicToggleBtn = document.getElementById('musicToggleBtn');
+const effectsToggleBtn = document.getElementById('effectsToggleBtn');
 
 const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 const hoverCapableQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
+const effectsStorageKey = 'photoWallEffectsEnabled';
 
 let revealObserver = null;
 let currentIndex = 0;
@@ -94,6 +96,82 @@ let lightboxHideTimer = 0;
 let lightboxSwitchTimer = 0;
 let touchStartX = 0;
 let touchStartY = 0;
+let effectsEnabled = readEffectsPreference();
+
+function readEffectsPreference() {
+  try {
+    const stored = window.localStorage.getItem(effectsStorageKey);
+    if (stored === 'true') {
+      return true;
+    }
+    if (stored === 'false') {
+      return false;
+    }
+  } catch {}
+
+  return !reduceMotionQuery.matches;
+}
+
+function persistEffectsPreference() {
+  try {
+    window.localStorage.setItem(effectsStorageKey, String(effectsEnabled));
+  } catch {}
+}
+
+function updateEffectsButtonState() {
+  if (!effectsToggleBtn) {
+    return;
+  }
+
+  effectsToggleBtn.classList.toggle('is-off', !effectsEnabled);
+  effectsToggleBtn.textContent = effectsEnabled ? '✨ 炫酷模式：开' : '✨ 炫酷模式：关';
+  effectsToggleBtn.setAttribute('aria-label', effectsEnabled ? '关闭炫酷特效' : '开启炫酷特效');
+}
+
+function applyEffectsMode() {
+  document.body.classList.toggle('fx-off', !effectsEnabled);
+  gallery.classList.remove('is-interacting');
+  updateEffectsButtonState();
+}
+
+function setupEffectsToggle() {
+  if (!effectsToggleBtn) {
+    return;
+  }
+
+  effectsToggleBtn.addEventListener('click', () => {
+    effectsEnabled = !effectsEnabled;
+    applyEffectsMode();
+    persistEffectsPreference();
+    renderGallery();
+  });
+}
+
+function setupGallerySpotlight() {
+  if (!gallery || reduceMotionQuery.matches || !hoverCapableQuery.matches) {
+    return;
+  }
+
+  gallery.addEventListener('pointerenter', () => {
+    gallery.classList.add('is-interacting');
+  });
+
+  gallery.addEventListener('pointermove', (event) => {
+    if (!effectsEnabled) {
+      return;
+    }
+
+    const rect = gallery.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    gallery.style.setProperty('--spot-x', `${Math.max(0, Math.min(100, x)).toFixed(1)}%`);
+    gallery.style.setProperty('--spot-y', `${Math.max(0, Math.min(100, y)).toFixed(1)}%`);
+  });
+
+  gallery.addEventListener('pointerleave', () => {
+    gallery.classList.remove('is-interacting');
+  });
+}
 
 function setMusicButtonState({ playing = false, disabled = false, text = '' } = {}) {
   if (!musicToggleBtn) {
@@ -168,6 +246,10 @@ function cardVariant(index) {
 }
 
 function setCardTilt(card, pointerEvent) {
+  if (!effectsEnabled) {
+    return;
+  }
+
   const rect = card.getBoundingClientRect();
   const x = (pointerEvent.clientX - rect.left) / rect.width;
   const y = (pointerEvent.clientY - rect.top) / rect.height;
@@ -188,14 +270,17 @@ function resetCardTilt(card) {
 }
 
 function bindCardMotion(card, index) {
-  if (!reduceMotionQuery.matches) {
+  if (!reduceMotionQuery.matches && effectsEnabled) {
     card.classList.add('motion-ready');
     card.style.setProperty('--delay', `${Math.min(index * 45, 420)}ms`);
+    card.style.setProperty('--img-delay', `${(index * 320) % 2100}ms`);
+    card.style.setProperty('--float-delay', `${(index * 190) % 1600}ms`);
+    card.style.setProperty('--float-distance', `${5 + (index % 4)}px`);
   } else {
     card.classList.add('is-visible');
   }
 
-  if (!reduceMotionQuery.matches && hoverCapableQuery.matches) {
+  if (!reduceMotionQuery.matches && hoverCapableQuery.matches && effectsEnabled) {
     card.addEventListener('pointermove', (event) => setCardTilt(card, event));
     card.addEventListener('pointerleave', () => resetCardTilt(card));
     card.addEventListener('pointerdown', () => resetCardTilt(card));
@@ -244,7 +329,7 @@ function renderGallery() {
     card.innerHTML = `<img src="${photo.thumb}" alt="${photo.title}" loading="lazy" />`;
 
     bindCardMotion(card, index);
-    card.addEventListener('click', () => openLightbox(index));
+    card.addEventListener('click', () => openLightbox(index, 0));
     gallery.append(card);
     cards.push(card);
   });
@@ -252,16 +337,25 @@ function renderGallery() {
   setupReveal(cards);
 }
 
-function switchLightboxPhoto(photo, withMotion = false) {
+function switchLightboxPhoto(photo, withMotion = false, direction = 0) {
   if (!photo) {
     return;
   }
 
-  if (withMotion && !reduceMotionQuery.matches) {
+  lightbox.classList.remove('is-switching-next', 'is-switching-prev');
+
+  if (withMotion && !reduceMotionQuery.matches && effectsEnabled) {
     lightbox.classList.add('is-switching');
+    if (direction > 0) {
+      lightbox.classList.add('is-switching-next');
+    } else if (direction < 0) {
+      lightbox.classList.add('is-switching-prev');
+    }
+
     window.clearTimeout(lightboxSwitchTimer);
     lightboxSwitchTimer = window.setTimeout(() => {
       lightbox.classList.remove('is-switching');
+      lightbox.classList.remove('is-switching-next', 'is-switching-prev');
     }, 180);
   }
 
@@ -270,7 +364,7 @@ function switchLightboxPhoto(photo, withMotion = false) {
   lightboxTitle.textContent = photo.title;
 }
 
-function openLightbox(index) {
+function openLightbox(index, direction = 0) {
   currentIndex = index;
   const current = photos[currentIndex];
   if (!current) {
@@ -289,7 +383,7 @@ function openLightbox(index) {
     lightbox.classList.add('is-open');
   }
 
-  switchLightboxPhoto(current, shouldAnimateSwitch);
+  switchLightboxPhoto(current, shouldAnimateSwitch, direction);
 }
 
 function closeLightbox() {
@@ -299,6 +393,7 @@ function closeLightbox() {
 
   lightbox.classList.remove('is-open');
   lightbox.classList.remove('is-switching');
+  lightbox.classList.remove('is-switching-next', 'is-switching-prev');
   window.clearTimeout(lightboxHideTimer);
   window.clearTimeout(lightboxSwitchTimer);
 
@@ -326,7 +421,7 @@ function changeSlide(delta) {
   }
 
   currentIndex = (currentIndex + delta + length) % length;
-  openLightbox(currentIndex);
+  openLightbox(currentIndex, delta);
 }
 
 closeBtn.addEventListener('click', closeLightbox);
@@ -384,12 +479,22 @@ window.addEventListener('keydown', (event) => {
 
 if (typeof reduceMotionQuery.addEventListener === 'function') {
   reduceMotionQuery.addEventListener('change', () => {
+    if (reduceMotionQuery.matches && effectsEnabled) {
+      effectsEnabled = false;
+      persistEffectsPreference();
+    }
+
+    applyEffectsMode();
+    gallery.classList.remove('is-interacting');
     renderGallery();
     if (!lightbox.hidden) {
-      switchLightboxPhoto(photos[currentIndex], false);
+      switchLightboxPhoto(photos[currentIndex], false, 0);
     }
   });
 }
 
+applyEffectsMode();
 renderGallery();
+setupGallerySpotlight();
 setupBackgroundMusic();
+setupEffectsToggle();

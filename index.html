@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>哥姐弟漫游之旅</title>
+    <meta
+      name="description"
+      content="哥姐弟漫游之旅：一页式响应式照片墙，支持全屏大图预览。"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__content container">
+        <p class="hero__tag">Photo Wall</p>
+        <h1>哥姐弟漫游之旅</h1>
+        <p class="hero__desc">
+          一页式、响应式、可直接上线。记录我们的日常与旅途瞬间。
+        </p>
+      </div>
+      <div class="hero__glow hero__glow--one"></div>
+      <div class="hero__glow hero__glow--two"></div>
+    </header>
+
+    <main class="container main">
+      <section>
+        <div id="gallery" class="gallery" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <div
+      id="lightbox"
+      class="lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label="照片预览"
+      hidden
+    >
+      <button class="lightbox__backdrop" id="lightboxBackdrop" aria-label="关闭预览"></button>
+      <div class="lightbox__content" role="document">
+        <button class="lightbox__close" id="closeBtn" aria-label="关闭">×</button>
+        <button class="lightbox__nav lightbox__nav--prev" id="prevBtn" aria-label="上一张">‹</button>
+        <img id="lightboxImage" alt="" />
+        <button class="lightbox__nav lightbox__nav--next" id="nextBtn" aria-label="下一张">›</button>
+        <div class="lightbox__meta">
+          <h2 id="lightboxTitle"></h2>
+        </div>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

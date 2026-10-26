@@ -1,0 +1,330 @@
+const photos = [
+  {
+    id: 1,
+    title: '日常生活 01',
+    src: './assets/full/photo-01.jpg',
+    thumb: './assets/thumb/photo-01.jpg'
+  },
+  {
+    id: 2,
+    title: '日常生活 02',
+    src: './assets/full/photo-02.jpg',
+    thumb: './assets/thumb/photo-02.jpg'
+  },
+  {
+    id: 3,
+    title: '日常生活 03',
+    src: './assets/full/photo-03.jpg',
+    thumb: './assets/thumb/photo-03.jpg'
+  },
+  {
+    id: 4,
+    title: '日常生活 04',
+    src: './assets/full/photo-04.jpg',
+    thumb: './assets/thumb/photo-04.jpg'
+  },
+  {
+    id: 5,
+    title: '日常生活 05',
+    src: './assets/full/photo-05.jpg',
+    thumb: './assets/thumb/photo-05.jpg'
+  },
+  {
+    id: 6,
+    title: '日常生活 06',
+    src: './assets/full/photo-06.jpg',
+    thumb: './assets/thumb/photo-06.jpg'
+  },
+  {
+    id: 7,
+    title: '日常生活 07',
+    src: './assets/full/photo-07.jpg',
+    thumb: './assets/thumb/photo-07.jpg'
+  },
+  {
+    id: 8,
+    title: '日常生活 08',
+    src: './assets/full/photo-08.jpg',
+    thumb: './assets/thumb/photo-08.jpg'
+  },
+  {
+    id: 9,
+    title: '日常生活 09',
+    src: './assets/full/photo-09.jpg',
+    thumb: './assets/thumb/photo-09.jpg'
+  },
+  {
+    id: 10,
+    title: '日常生活 10',
+    src: './assets/full/photo-10.jpg',
+    thumb: './assets/thumb/photo-10.jpg'
+  },
+  {
+    id: 11,
+    title: '日常生活 11',
+    src: './assets/full/photo-11.jpg',
+    thumb: './assets/thumb/photo-11.jpg'
+  },
+  {
+    id: 12,
+    title: '日常生活 12',
+    src: './assets/full/photo-12.jpg',
+    thumb: './assets/thumb/photo-12.jpg'
+  }
+];
+
+const gallery = document.getElementById('gallery');
+const lightbox = document.getElementById('lightbox');
+const lightboxImage = document.getElementById('lightboxImage');
+const lightboxTitle = document.getElementById('lightboxTitle');
+const closeBtn = document.getElementById('closeBtn');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const lightboxBackdrop = document.getElementById('lightboxBackdrop');
+const lightboxContent = document.querySelector('.lightbox__content');
+
+const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+const hoverCapableQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
+
+let revealObserver = null;
+let currentIndex = 0;
+let lightboxHideTimer = 0;
+let lightboxSwitchTimer = 0;
+let touchStartX = 0;
+let touchStartY = 0;
+
+function cardVariant(index) {
+  if (index % 5 === 0) {
+    return 'card--tall';
+  }
+  if (index % 4 === 0) {
+    return 'card--wide';
+  }
+  return '';
+}
+
+function setCardTilt(card, pointerEvent) {
+  const rect = card.getBoundingClientRect();
+  const x = (pointerEvent.clientX - rect.left) / rect.width;
+  const y = (pointerEvent.clientY - rect.top) / rect.height;
+  const rotateY = (x - 0.5) * 10;
+  const rotateX = (0.5 - y) * 10;
+
+  card.style.setProperty('--rx', `${rotateX.toFixed(2)}deg`);
+  card.style.setProperty('--ry', `${rotateY.toFixed(2)}deg`);
+  card.style.setProperty('--mx', `${(x * 100).toFixed(1)}%`);
+  card.style.setProperty('--my', `${(y * 100).toFixed(1)}%`);
+}
+
+function resetCardTilt(card) {
+  card.style.setProperty('--rx', '0deg');
+  card.style.setProperty('--ry', '0deg');
+  card.style.setProperty('--mx', '50%');
+  card.style.setProperty('--my', '50%');
+}
+
+function bindCardMotion(card, index) {
+  if (!reduceMotionQuery.matches) {
+    card.classList.add('motion-ready');
+    card.style.setProperty('--delay', `${Math.min(index * 45, 420)}ms`);
+  } else {
+    card.classList.add('is-visible');
+  }
+
+  if (!reduceMotionQuery.matches && hoverCapableQuery.matches) {
+    card.addEventListener('pointermove', (event) => setCardTilt(card, event));
+    card.addEventListener('pointerleave', () => resetCardTilt(card));
+    card.addEventListener('pointerdown', () => resetCardTilt(card));
+  }
+}
+
+function setupReveal(cards) {
+  if (revealObserver) {
+    revealObserver.disconnect();
+    revealObserver = null;
+  }
+
+  if (reduceMotionQuery.matches || !('IntersectionObserver' in window)) {
+    cards.forEach((card) => card.classList.add('is-visible'));
+    return;
+  }
+
+  revealObserver = new IntersectionObserver(
+    (entries, observer) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    {
+      threshold: 0.16,
+      rootMargin: '0px 0px -8% 0px'
+    }
+  );
+
+  cards.forEach((card) => revealObserver.observe(card));
+}
+
+function renderGallery() {
+  gallery.innerHTML = '';
+  const cards = [];
+
+  photos.forEach((photo, index) => {
+    const card = document.createElement('button');
+    const variant = cardVariant(index);
+    card.className = `card ${variant}`.trim();
+    card.type = 'button';
+    card.setAttribute('aria-label', `查看 ${photo.title}`);
+    card.innerHTML = `<img src="${photo.thumb}" alt="${photo.title}" loading="lazy" />`;
+
+    bindCardMotion(card, index);
+    card.addEventListener('click', () => openLightbox(index));
+    gallery.append(card);
+    cards.push(card);
+  });
+
+  setupReveal(cards);
+}
+
+function switchLightboxPhoto(photo, withMotion = false) {
+  if (!photo) {
+    return;
+  }
+
+  if (withMotion && !reduceMotionQuery.matches) {
+    lightbox.classList.add('is-switching');
+    window.clearTimeout(lightboxSwitchTimer);
+    lightboxSwitchTimer = window.setTimeout(() => {
+      lightbox.classList.remove('is-switching');
+    }, 180);
+  }
+
+  lightboxImage.src = photo.src;
+  lightboxImage.alt = photo.title;
+  lightboxTitle.textContent = photo.title;
+}
+
+function openLightbox(index) {
+  currentIndex = index;
+  const current = photos[currentIndex];
+  if (!current) {
+    return;
+  }
+
+  const shouldAnimateSwitch = !lightbox.hidden;
+  if (lightbox.hidden) {
+    window.clearTimeout(lightboxHideTimer);
+    lightbox.hidden = false;
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => {
+      lightbox.classList.add('is-open');
+    });
+  } else {
+    lightbox.classList.add('is-open');
+  }
+
+  switchLightboxPhoto(current, shouldAnimateSwitch);
+}
+
+function closeLightbox() {
+  if (lightbox.hidden) {
+    return;
+  }
+
+  lightbox.classList.remove('is-open');
+  lightbox.classList.remove('is-switching');
+  window.clearTimeout(lightboxHideTimer);
+  window.clearTimeout(lightboxSwitchTimer);
+
+  const finishClose = () => {
+    if (lightbox.classList.contains('is-open')) {
+      return;
+    }
+    lightbox.hidden = true;
+    lightboxImage.src = '';
+    document.body.style.overflow = '';
+  };
+
+  if (reduceMotionQuery.matches) {
+    finishClose();
+    return;
+  }
+
+  lightboxHideTimer = window.setTimeout(finishClose, 340);
+}
+
+function changeSlide(delta) {
+  const length = photos.length;
+  if (!length) {
+    return;
+  }
+
+  currentIndex = (currentIndex + delta + length) % length;
+  openLightbox(currentIndex);
+}
+
+closeBtn.addEventListener('click', closeLightbox);
+lightboxBackdrop.addEventListener('click', closeLightbox);
+prevBtn.addEventListener('click', () => changeSlide(-1));
+nextBtn.addEventListener('click', () => changeSlide(1));
+
+lightboxContent.addEventListener(
+  'touchstart',
+  (event) => {
+    if (event.touches.length !== 1) {
+      return;
+    }
+
+    touchStartX = event.touches[0].clientX;
+    touchStartY = event.touches[0].clientY;
+  },
+  { passive: true }
+);
+
+lightboxContent.addEventListener(
+  'touchend',
+  (event) => {
+    if (lightbox.hidden || event.changedTouches.length !== 1) {
+      return;
+    }
+
+    const deltaX = event.changedTouches[0].clientX - touchStartX;
+    const deltaY = event.changedTouches[0].clientY - touchStartY;
+
+    if (Math.abs(deltaX) > 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+      changeSlide(deltaX > 0 ? -1 : 1);
+    }
+  },
+  { passive: true }
+);
+
+window.addEventListener('keydown', (event) => {
+  if (lightbox.hidden) {
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    closeLightbox();
+  }
+
+  if (event.key === 'ArrowLeft') {
+    changeSlide(-1);
+  }
+
+  if (event.key === 'ArrowRight') {
+    changeSlide(1);
+  }
+});
+
+if (typeof reduceMotionQuery.addEventListener === 'function') {
+  reduceMotionQuery.addEventListener('change', () => {
+    renderGallery();
+    if (!lightbox.hidden) {
+      switchLightboxPhoto(photos[currentIndex], false);
+    }
+  });
+}
+
+renderGallery();

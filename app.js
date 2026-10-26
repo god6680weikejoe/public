@@ -82,6 +82,8 @@ const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const lightboxBackdrop = document.getElementById('lightboxBackdrop');
 const lightboxContent = document.querySelector('.lightbox__content');
+const bgmAudio = document.getElementById('bgmAudio');
+const musicToggleBtn = document.getElementById('musicToggleBtn');
 
 const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 const hoverCapableQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
@@ -92,6 +94,68 @@ let lightboxHideTimer = 0;
 let lightboxSwitchTimer = 0;
 let touchStartX = 0;
 let touchStartY = 0;
+
+function setMusicButtonState({ playing = false, disabled = false, text = '' } = {}) {
+  if (!musicToggleBtn) {
+    return;
+  }
+
+  musicToggleBtn.classList.toggle('is-playing', playing);
+  musicToggleBtn.classList.toggle('is-disabled', disabled);
+  musicToggleBtn.disabled = disabled;
+  musicToggleBtn.textContent = text || (playing ? '🎵 音乐播放中' : '🎵 播放音乐');
+  musicToggleBtn.setAttribute('aria-label', playing ? '暂停背景音乐' : '播放背景音乐');
+}
+
+function setupBackgroundMusic() {
+  if (!bgmAudio || !musicToggleBtn) {
+    return;
+  }
+
+  bgmAudio.volume = 0.36;
+  bgmAudio.loop = true;
+
+  const tryPlay = () =>
+    bgmAudio
+      .play()
+      .then(() => {
+        setMusicButtonState({ playing: true });
+      })
+      .catch(() => {
+        setMusicButtonState({ playing: false, text: '🎵 点击播放音乐' });
+      });
+
+  musicToggleBtn.addEventListener('click', () => {
+    if (bgmAudio.paused) {
+      tryPlay();
+      return;
+    }
+
+    bgmAudio.pause();
+    setMusicButtonState({ playing: false, text: '🎵 播放音乐' });
+  });
+
+  bgmAudio.addEventListener('play', () => setMusicButtonState({ playing: true }));
+  bgmAudio.addEventListener('pause', () => setMusicButtonState({ playing: false }));
+  bgmAudio.addEventListener('error', () => {
+    setMusicButtonState({
+      disabled: true,
+      text: '🎵 未找到音乐文件'
+    });
+  });
+
+  window.addEventListener(
+    'pointerdown',
+    () => {
+      if (bgmAudio.paused) {
+        tryPlay();
+      }
+    },
+    { once: true }
+  );
+
+  tryPlay();
+}
 
 function cardVariant(index) {
   if (index % 5 === 0) {
@@ -328,3 +392,4 @@ if (typeof reduceMotionQuery.addEventListener === 'function') {
 }
 
 renderGallery();
+setupBackgroundMusic();

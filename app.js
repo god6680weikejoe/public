@@ -96,6 +96,11 @@ let lightboxHideTimer = 0;
 let lightboxSwitchTimer = 0;
 let touchStartX = 0;
 let touchStartY = 0;
+let carouselModeActive = false;
+
+function shouldUseCarouselMode() {
+  return effectsEnabled && !reduceMotionQuery.matches && window.innerWidth >= 960 && photos.length >= 6;
+}
 let effectsEnabled = readEffectsPreference();
 
 function readEffectsPreference() {
@@ -129,7 +134,9 @@ function updateEffectsButtonState() {
 }
 
 function applyEffectsMode() {
+  carouselModeActive = shouldUseCarouselMode();
   document.body.classList.toggle('fx-off', !effectsEnabled);
+  document.body.classList.toggle('fx-carousel', carouselModeActive);
   gallery.classList.remove('is-interacting');
   updateEffectsButtonState();
 }
@@ -153,11 +160,15 @@ function setupGallerySpotlight() {
   }
 
   gallery.addEventListener('pointerenter', () => {
+    if (!effectsEnabled || carouselModeActive) {
+      return;
+    }
+
     gallery.classList.add('is-interacting');
   });
 
   gallery.addEventListener('pointermove', (event) => {
-    if (!effectsEnabled) {
+    if (!effectsEnabled || carouselModeActive) {
       return;
     }
 
@@ -246,7 +257,7 @@ function cardVariant(index) {
 }
 
 function setCardTilt(card, pointerEvent) {
-  if (!effectsEnabled) {
+  if (!effectsEnabled || carouselModeActive) {
     return;
   }
 
@@ -269,7 +280,12 @@ function resetCardTilt(card) {
   card.style.setProperty('--my', '50%');
 }
 
-function bindCardMotion(card, index) {
+function bindCardMotion(card, index, useCarouselMode) {
+  if (useCarouselMode) {
+    card.classList.add('is-visible');
+    return;
+  }
+
   if (!reduceMotionQuery.matches && effectsEnabled) {
     card.classList.add('motion-ready');
     card.style.setProperty('--delay', `${Math.min(index * 45, 420)}ms`);
@@ -287,10 +303,15 @@ function bindCardMotion(card, index) {
   }
 }
 
-function setupReveal(cards) {
+function setupReveal(cards, useCarouselMode) {
   if (revealObserver) {
     revealObserver.disconnect();
     revealObserver = null;
+  }
+
+  if (useCarouselMode) {
+    cards.forEach((card) => card.classList.add('is-visible'));
+    return;
   }
 
   if (reduceMotionQuery.matches || !('IntersectionObserver' in window)) {
@@ -319,22 +340,41 @@ function setupReveal(cards) {
 function renderGallery() {
   gallery.innerHTML = '';
   const cards = [];
+  const useCarouselMode = shouldUseCarouselMode();
+  carouselModeActive = useCarouselMode;
+
+  gallery.classList.toggle('gallery--carousel', useCarouselMode);
+  document.body.classList.toggle('fx-carousel', useCarouselMode);
+
+  if (useCarouselMode) {
+    gallery.style.setProperty('--carousel-count', String(photos.length));
+    gallery.style.setProperty('--carousel-radius', `${Math.max(320, Math.min(540, photos.length * 42))}px`);
+  } else {
+    gallery.style.removeProperty('--carousel-count');
+    gallery.style.removeProperty('--carousel-radius');
+  }
 
   photos.forEach((photo, index) => {
     const card = document.createElement('button');
-    const variant = cardVariant(index);
+    const variant = useCarouselMode ? '' : cardVariant(index);
     card.className = `card ${variant}`.trim();
     card.type = 'button';
     card.setAttribute('aria-label', `查看 ${photo.title}`);
     card.innerHTML = `<img src="${photo.thumb}" alt="${photo.title}" loading="lazy" />`;
 
-    bindCardMotion(card, index);
+    if (useCarouselMode) {
+      card.classList.add('card--carousel');
+      card.style.setProperty('--i', String(index));
+      card.style.setProperty('--count', String(photos.length));
+    }
+
+    bindCardMotion(card, index, useCarouselMode);
     card.addEventListener('click', () => openLightbox(index, 0));
     gallery.append(card);
     cards.push(card);
   });
 
-  setupReveal(cards);
+  setupReveal(cards, useCarouselMode);
 }
 
 function switchLightboxPhoto(photo, withMotion = false, direction = 0) {
@@ -492,6 +532,14 @@ if (typeof reduceMotionQuery.addEventListener === 'function') {
     }
   });
 }
+
+window.addEventListener('resize', () => {
+  const nextCarouselMode = shouldUseCarouselMode();
+  if (nextCarouselMode !== carouselModeActive) {
+    applyEffectsMode();
+    renderGallery();
+  }
+});
 
 applyEffectsMode();
 renderGallery();

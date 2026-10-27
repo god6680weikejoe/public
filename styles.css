@@ -219,6 +219,68 @@ img {
   perspective: 900px;
 }
 
+.gallery.gallery--carousel {
+  display: block;
+  height: clamp(440px, 62vh, 700px);
+  margin-top: 10px;
+  perspective: 1450px;
+  transform-style: preserve-3d;
+  animation: carousel-spin 38s linear infinite;
+}
+
+.gallery.gallery--carousel:hover,
+.gallery.gallery--carousel:focus-within {
+  animation-play-state: paused;
+}
+
+.gallery.gallery--carousel::before {
+  opacity: 0.82;
+}
+
+.gallery.gallery--carousel .card {
+  --carousel-step: calc(360deg / var(--count));
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(160px, 17vw, 240px);
+  height: clamp(220px, 25vw, 320px);
+  min-height: 0;
+  transform: translate3d(-50%, -50%, 0)
+    rotateY(calc(var(--carousel-step) * var(--i)))
+    translateZ(var(--carousel-radius)) !important;
+  transition: transform 0.46s cubic-bezier(0.2, 0.72, 0.2, 1), box-shadow 0.3s ease,
+    filter 0.3s ease;
+  animation: none !important;
+}
+
+.gallery.gallery--carousel .card.motion-ready,
+.gallery.gallery--carousel .card.motion-ready.is-visible {
+  opacity: 1;
+}
+
+.gallery.gallery--carousel .card img {
+  animation: none;
+}
+
+.gallery.gallery--carousel .card:hover,
+.gallery.gallery--carousel .card:focus-visible {
+  transform: translate3d(-50%, -50%, 0)
+    rotateY(calc(var(--carousel-step) * var(--i)))
+    translateZ(calc(var(--carousel-radius) + 28px))
+    scale(1.05) !important;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.5);
+}
+
+.gallery.gallery--carousel .card:hover img {
+  transform: scale(1.1);
+}
+
+.gallery.gallery--carousel .card::after {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.2)),
+    linear-gradient(120deg, rgba(124, 144, 255, 0.28), transparent 46%);
+}
+
 .gallery::before {
   content: '';
   position: absolute;
@@ -247,6 +309,10 @@ body.fx-off::before {
 
 body.fx-off .gallery::before {
   opacity: 0 !important;
+}
+
+body.fx-off .gallery.gallery--carousel {
+  animation: none;
 }
 
 body.fx-off .card {
@@ -557,6 +623,15 @@ body.fx-off .lightbox.is-switching-prev .lightbox__content img {
   }
 }
 
+@keyframes carousel-spin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
 @keyframes pulse-glow {
   0%,
   100% {
@@ -621,6 +696,28 @@ body.fx-off .lightbox.is-switching-prev .lightbox__content img {
   .gallery {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
+  }
+
+  .gallery.gallery--carousel {
+    display: grid;
+    height: auto;
+    perspective: 900px;
+    transform: none;
+    animation: none;
+  }
+
+  .gallery.gallery--carousel .card {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: auto;
+    height: auto;
+    min-height: 180px;
+    transform: perspective(900px)
+      translateY(var(--reveal-y))
+      rotateX(var(--rx))
+      rotateY(var(--ry))
+      rotateZ(var(--rz)) !important;
   }
 
   .card {
